@@ -1,4 +1,4 @@
-import React, { Component } from 'react';
+import React, { useState, useEffect } from 'react';
 import './App.css';
 import getImages from './services/image-api';
 import Searchbar from './components/Searchbar';
@@ -7,91 +7,91 @@ import { ThreeDots } from 'react-loader-spinner';
 import Button from './components/Button';
 import Modal from './components/Modal';
 
-class App extends Component {
-	state = {
-		query: '',
-		images: null,
-		status: 'idle',
-		error: null,
-		page: 1,
-		showModal: false,
-		imageOnModal: null,
-	};
+function App() {
+	const [query, setQuery] = useState('');
+	const [images, setImages] = useState(null);
+	const [status, setStatus] = useState('idle');
+	const [error, setError] = useState(null);
+	const [page, setPage] = useState(1);
+	const [showModal, setShowModal] = useState(false);
+	const [imageOnModal, setImageOnModal] = useState(null);
 
-	componentDidUpdate(prevProps, prevState) {
-		if (prevState.query !== this.state.query) {
-			this.setState({ status: 'pending' });
-
-			getImages(this.state.query)
-				.then((images) => this.setState({ images, status: 'resolved' }))
-				.catch((error) => this.setState({ error, status: 'rejected' }));
+	useEffect(() => {
+		if (query === '') {
+			return;
 		}
 
-		if (prevState.page < this.state.page) {
-			this.setState({ status: 'pending' });
+		setStatus('pending');
+		getImages(query)
+			.then((images) => {
+				setImages(images);
+				setStatus('resolved');
+			})
+			.catch((error) => {
+				setError(error);
+				setStatus('rejected');
+			});
+	}, [query]);
 
-			getImages(this.state.query, this.state.page)
-				.then((newImages) =>
-					this.setState(({ images }) => ({
-						images: [...images, ...newImages],
-						status: 'resolved',
-					}))
-				)
-				.catch((error) => this.setState({ error, status: 'rejected' }));
+	useEffect(() => {
+		if (page === 1) {
+			return;
 		}
-	}
 
-	handleQuerySubmit = (query) => {
-		this.setState({ query, page: 1 });
+		setStatus('pending');
+
+		getImages(query, page)
+			.then((newImages) => {
+				setImages((images) => [...images, ...newImages]);
+				setStatus('resolved');
+			})
+			.catch((error) => {
+				setError(error);
+				setStatus('rejected');
+			});
+	}, [query, page]);
+
+	const handleQuerySubmit = (query) => {
+		setQuery(query);
+		setPage(1);
 	};
 
-	handleLoadMoreButton = () => {
-		this.setState(({ page }) => {
-			return { page: page + 1 };
-		});
+	const handleLoadMoreButton = () => {
+		setPage((s) => s + 1);
 	};
 
-	toogleModal = () => {
-		this.setState(({ showModal }) => ({ showModal: !showModal }));
+	const toogleModal = () => {
+		setShowModal((s) => !s);
 	};
 
-	handleOpenModal = (id) => {
-		const imageOnModal = this.state.images.find((image) => image.id === id);
-		this.setState({ showModal: true, imageOnModal });
+	const handleOpenModal = (id) => {
+		const imageOnModal = images.find((image) => image.id === id);
+		setShowModal(true);
+		setImageOnModal(imageOnModal);
 	};
 
-	render() {
-		const { images, status, showModal, imageOnModal } = this.state;
-		const {
-			handleQuerySubmit,
-			handleLoadMoreButton,
-			handleOpenModal,
-			toogleModal,
-		} = this;
+	return (
+		<div className="App">
+			<Searchbar onSubmit={handleQuerySubmit} />
 
-		return (
-			<div className="App">
-				<Searchbar onSubmit={handleQuerySubmit} />
+			{images !== null && (
+				<>
+					<ImageGallery images={images} onItemClick={handleOpenModal} />
+					<Button loadMore={handleLoadMoreButton} />
+				</>
+			)}
 
-				{images !== null && (
-					<>
-						<ImageGallery images={images} onItemClick={handleOpenModal} />
-						<Button loadMore={handleLoadMoreButton} />
-					</>
-				)}
+			{status === 'pending' && (
+				<ThreeDots
+					color="#3f51b5"
+					secondaryColor="white"
+					wrapperStyle={{ display: 'flex', justifyContent: 'center' }}
+				/>
+			)}
 
-				{status === 'pending' && (
-					<ThreeDots
-						color="#3f51b5"
-						secondaryColor="white"
-						wrapperStyle={{ display: 'flex', justifyContent: 'center' }}
-					/>
-				)}
-
-				{showModal && <Modal img={imageOnModal} onClose={toogleModal} />}
-			</div>
-		);
-	}
+			{showModal && <Modal img={imageOnModal} onClose={toogleModal} />}
+		</div>
+	);
 }
 
 export default App;
